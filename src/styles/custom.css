@@ -56,7 +56,8 @@ body {
   background: rgba(255, 255, 255, 0);
   margin: 60px;
   box-shadow: 0 0 15px #00ffff50;
-  width: 280px;
+  width: 100%;
+  max-width: 280px;
   transition: 0.3s;
 }
 
@@ -107,7 +108,7 @@ body {
 }
 
 .glow-frame img {
-  width: 200px;
+  width: 200px; /* ← TROCAR */
   max-width: 100%;
   display: block;
   border-radius: 10px;
@@ -184,8 +185,9 @@ html, body {
 .logo-core {
   position: relative;
   z-index: 10;
-  width: 420px;
-  height: 420px;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
 }
 
 .center-logo {
@@ -285,7 +287,8 @@ html, body {
 }
 
 .app-gallery img {
-  width: 220px;
+  width: 100%;
+  max-width: 220px;
   border-radius: 12px;
   box-shadow: 0 0 15px #00ffff80;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -306,6 +309,9 @@ html, body {
 
 .download-btn {
   height: 55px;
+   width: 100%;
+  max-width: 220px;
+  height: auto;
   transition: transform 0.2s ease;
 }
 
@@ -343,5 +349,97 @@ html, body {
   }
   50% {
     text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Reduz cards e espaçamentos */
+  .card {
+    width: 90%;
+    margin: 10px auto;
+    padding: 12px;
+  }
+
+  .hero-container {
+    padding-top: 40px;
+  }
+
+  .title {
+    font-size: 2rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+  }
+
+  .button-group {
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+  }
+
+  .btn {
+    width: 80%;
+    padding: 12px;
+    font-size: 1rem;
+  }
+
+  .glow-frame img,
+  .app-gallery img {
+    width: 100px;
+  }
+
+  .app-links {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    padding: 0 10px;
+  }
+
+  .social-icon {
+    height: 36px;
+  }
+
+  .page-section {
+    padding: 20px 10px;
+  }
+
+  .roadmap-container {
+    padding: 40px 10px;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+  }
+
+  .final-message {
+    font-size: 16px;
+    padding: 0 10px;
+  }
+
+  .coin-bg {
+    display: none !important;
+  }
+}
+
+/* ===== MOBILE FIX: Cards da Seção 1 ===== */
+@media (max-width: 768px) {
+  .hero-container .card {
+    width: 110px;
+    padding: 8px;
+    margin: 8px;
+    font-size: 0.6rem;
+    border-radius: 10px;
+  }
+
+  .hero-container .card p {
+    font-size: 0.45rem;
+  }
+
+  .hero-container .button-group .btn {
+    padding: 10px 20px;
+    font-size: 0.8rem;
   }
 }

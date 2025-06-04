@@ -41,13 +41,13 @@ export default function TournamentsCard() {
         onMouseEnter={fetchTournaments}
         onMouseLeave={handleLeave}
       >
-        <h2 style={{ color: "#00ffff" }}>Paid Tournaments</h2>
+        <h2 style={{ color: "#00ffff" }}> Tournaments</h2>
         <p>Total tournaments played</p>
   
         {show && (
           <div className="tournament-float">
             <p>Total Played</p>
-            <h3>{value} tournaments</h3>
+            <h3>{value} </h3>
           </div>
         )}
       </div>

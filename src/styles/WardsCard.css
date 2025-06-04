@@ -27,3 +27,15 @@
   50% { box-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff inset; }
   100% { box-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff inset; }
 }
+
+@media (max-width: 768px) {
+  .wards-float {
+    width: 150px;
+    min-width: unset;
+    padding: 12px;
+  }
+
+  .tournament-float * {
+    font-size: 12px !important;
+  }
+}

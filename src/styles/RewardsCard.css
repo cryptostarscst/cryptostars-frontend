@@ -27,3 +27,14 @@
   50% { box-shadow: 0 0 20px #ff66ff, 0 0 30px #ff66ff inset; }
   100% { box-shadow: 0 0 10px #ff66ff, 0 0 20px #ff66ff inset; }
 }
+
+@media (max-width: 768px) {
+  .neon-result-card {
+    width: 150px;
+    padding: 12px;
+  }
+
+  .neon-result-card * {
+    font-size: 12px !important;
+  }
+}
