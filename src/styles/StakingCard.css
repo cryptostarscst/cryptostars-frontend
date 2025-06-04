@@ -1,0 +1,30 @@
+.staking-card-container {
+  position: relative;
+  display: inline-block;
+  text-align: center;
+}
+
+.neon-result-card {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 50px;
+  padding: 17px;
+  width: 280px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid #00ffff;
+  border-radius: 10px;
+  color: #00ffff;
+  font-family: 'Orbitron', monospace;
+  text-align: center;
+  box-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff inset;
+  animation: glow-pulse 1.5s infinite ease-in-out;
+  z-index: 999;
+}
+
+@keyframes glow-pulse {
+  0% { box-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff inset; }
+  50% { box-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff inset; }
+  100% { box-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff inset; }
+}

@@ -1,0 +1,29 @@
+.reward-card-container {
+  position: relative;
+  display: inline-block;
+  text-align: center;
+}
+
+.reward-float {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 10px;
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid #ff66ff;
+  border-radius: 10px;
+  padding: 16px;
+  min-width: 200px;
+  z-index: 999;
+  color: #ff66ff;
+  font-family: 'Orbitron', monospace;
+  box-shadow: 0 0 10px #ff66ff, 0 0 20px #ff66ff inset;
+  animation: reward-glow 1.5s infinite ease-in-out;
+}
+
+@keyframes reward-glow {
+  0% { box-shadow: 0 0 10px #ff66ff, 0 0 20px #ff66ff inset; }
+  50% { box-shadow: 0 0 20px #ff66ff, 0 0 30px #ff66ff inset; }
+  100% { box-shadow: 0 0 10px #ff66ff, 0 0 20px #ff66ff inset; }
+}

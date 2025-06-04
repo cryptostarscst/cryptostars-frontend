@@ -1,0 +1,65 @@
+.modal-backdrop {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(2, 2, 20, 0.663);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .modal-content {
+    position: relative;
+    background: #060728be;
+    border: 2px solid #00FFC6;
+    padding: 30px;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 600px;
+    text-align: center;
+    color: white;
+    overflow: hidden;
+  }
+  
+  .central-skin img {
+    width: 230px;
+    animation: pulse 2s infinite;
+  }
+  
+  .central-skin {
+    margin-top: 30px;
+  }
+  
+  .skins-ticker {
+    overflow: hidden;
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  
+  .skins-track {
+    display: flex;
+    gap: 20px;
+    animation: scrollSkins 25s linear infinite;
+  }
+  
+  .skin-preview {
+    min-width: 100px;
+    text-align: center;
+  }
+  
+  .skin-preview img {
+    width: 80px;
+    border: 2px solid #00FFC6;
+    border-radius: 10px;
+  }
+  
+  @keyframes scrollSkins {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+  }
+  
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }

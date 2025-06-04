@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 40;
+  padding: 40;
+  font-family: 'Orbitron', sans-serif;
+}
+
+/* Estilos neon personalizados */
+.neon-blue {
+  @apply text-cyan-400 border border-cyan-400 hover:bg-cyan-400 hover:text-black transition;
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.8), 0 0 15px rgba(0, 255, 255, 0.5);
+}
+
+.neon-purple {
+  @apply text-purple-400 border border-purple-400 hover:bg-purple-400 hover:text-black transition;
+  box-shadow: 0 0 8px rgba(192, 132, 252, 0.8), 0 0 15px rgba(192, 132, 252, 0.5);
+}

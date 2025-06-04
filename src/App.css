@@ -1,0 +1,50 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Orbitron", sans-serif;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  color: white;
+  overflow-x: hidden;
+}
+
+.app-container {
+  text-align: center;
+  padding-top: 15vh;
+}
+
+.title {
+  font-size: 4rem;
+  color: #00ffc6;
+  letter-spacing: 2px;
+}
+
+.title span {
+  color: #ffd700;
+}
+
+.subtitle {
+  font-size: 1.2rem;
+  margin-top: 10px;
+  color: #ccc;
+}
+
+.button-group {
+  margin-top: 40px;
+}
+
+button {
+  margin: 0 10px;
+  padding: 15px 30px;
+  font-size: 1.1rem;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #00ffc6, #00ccff);
+  color: black;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+button:hover {
+  transform: scale(1.05);
+  background: linear-gradient(90deg, #ffd700, #ff8c00);
+}
