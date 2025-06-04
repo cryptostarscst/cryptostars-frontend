@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "./firebaseConfig";
-import "./styles/wardsCard.css";
+import "./styles/WardsCard.css";
 
 export default function WardsCard() {
   const [value, setValue] = useState(null);
