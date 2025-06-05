@@ -290,7 +290,7 @@ function App() {
 
           {/* Seção 3 */}
           <section className="page-section" style={{ backgroundImage: `url(${thirdBg})` }}>
-  <h2 className="section-title">More features coming soon...</h2>
+  <h2 className="section-title">Get a head start: 1 USDC + 10,000 CST free on registration!</h2>
 
   <div className="app-gallery">
     <img src={appPrint1} alt="App Print 1" />
