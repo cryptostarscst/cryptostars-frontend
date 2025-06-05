@@ -1012,3 +1012,39 @@ html, body {
   overflow: hidden;
   height: 100vh;
 }
+
+@media screen and (max-width: 768px) {
+  .button-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 8px;
+    column-gap: 8px;
+    padding: 8px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .button-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px !important; /* Corrige espaçamento excessivo */
+    width: 100%;
+  }
+
+  .button-frame {
+    width: 30%;
+    min-width: 90px;
+    max-width: 100px;
+    height: 90px;
+    padding: 4px;
+    margin: 0 !important; /* Garante remoção de espaçamento extra */
+  }
+
+  .button-img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+}
