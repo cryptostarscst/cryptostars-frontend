@@ -158,7 +158,7 @@ function App() {
   fontSize: "18px",
   textAlign: "center"
 }}>
-  👁️ Total visits: {visitCount}
+   Total visits: {visitCount}
 </div>
 
   </div>
