@@ -25,6 +25,10 @@ import iosBtn from "./assets/images/ios-download.png"; // botão iOS
 
 import { Routes, Route } from "react-router-dom";
 import TournamentTypes from "./TournamentTypes";
+import { useEffect } from "react";
+import { db } from "./firebaseConfig";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+
 
 function App() {
   const [showLogin, setShowLogin] = useState(false);
@@ -36,6 +40,25 @@ function App() {
   const [showReferralInfo, setShowReferralInfo] = useState(false);
   const [showCSTModal, setShowCSTModal] = useState(false);
   const [showTournamentTypes, setShowTournamentTypes] = useState(false);
+
+
+  useEffect(() => {
+    const registerVisit = async () => {
+      try {
+        await addDoc(collection(db, "visits"), {
+          timestamp: serverTimestamp(),
+          userAgent: navigator.userAgent,
+          language: navigator.language,
+          platform: navigator.platform
+        });
+        console.log("✅ Visita registrada.");
+      } catch (error) {
+        console.error("Erro ao registrar visita:", error);
+      }
+    };
+  
+    registerVisit();
+  }, []);
   
 
   const handleLoginSuccess = (id) => {
