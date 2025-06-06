@@ -27,7 +27,7 @@ import { Routes, Route } from "react-router-dom";
 import TournamentTypes from "./TournamentTypes";
 import { useEffect } from "react";
 import { db } from "./firebaseConfig";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 
 
 function App() {
@@ -40,6 +40,20 @@ function App() {
   const [showReferralInfo, setShowReferralInfo] = useState(false);
   const [showCSTModal, setShowCSTModal] = useState(false);
   const [showTournamentTypes, setShowTournamentTypes] = useState(false);
+  const [visitCount, setVisitCount] = useState(0);
+
+  useEffect(() => {
+    const fetchVisitCount = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "visits"));
+        setVisitCount(snapshot.size);
+      } catch (error) {
+        console.error("Erro ao buscar contador de visitas:", error);
+      }
+    };
+  
+    fetchVisitCount();
+  }, []);
 
 
   useEffect(() => {
@@ -135,6 +149,18 @@ function App() {
     <TournamentsCard />
     <StakingCard />
     <WardsCard />
+
+    <div style={{
+  marginTop: "40px",
+  color: "#00ffff",
+  textShadow: "0 0 10px #00ffff",
+  fontWeight: "bold",
+  fontSize: "18px",
+  textAlign: "center"
+}}>
+  👁️ Total visits: {visitCount}
+</div>
+
   </div>
 
   {showLogin && (
