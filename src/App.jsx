@@ -41,6 +41,17 @@ function App() {
   const [showCSTModal, setShowCSTModal] = useState(false);
   const [showTournamentTypes, setShowTournamentTypes] = useState(false);
   const [visitCount, setVisitCount] = useState(0);
+  const [isAndroid, setIsAndroid] = useState(false);
+
+
+
+  useEffect(() => {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    if (/android/i.test(userAgent)) {
+      setIsAndroid(true);
+    }
+  }, []);
+
 
   useEffect(() => {
     const fetchVisitCount = async () => {
@@ -111,30 +122,9 @@ function App() {
     position: "relative", // necessário para os coins serem posicionados corretamente
   }}
 >
-  {/* COINS apenas aqui */}
-  <div className="coin-bg" style={{
-    position: "absolute", top: "57%", left: "50%",
-    transform: "translate(-50%, -30%)", zIndex: 1, opacity: 5,
-    width: "300px", height: "300px",
-    backgroundImage: `url(${coin})`, backgroundSize: "contain",
-    backgroundRepeat: "no-repeat", backgroundPosition: "center", pointerEvents: "none"
-  }}></div>
 
-  <div className="coin-bg" style={{
-    position: "absolute", top: "57%", left: "29%",
-    transform: "translate(-50%, -30%)", zIndex: 1, opacity: 5,
-    width: "299px", height: "300px",
-    backgroundImage: `url(${coin})`, backgroundSize: "contain",
-    backgroundRepeat: "no-repeat", backgroundPosition: "center", pointerEvents: "none"
-  }}></div>
 
-  <div className="coin-bg" style={{
-    position: "absolute", top: "57%", left: "71%",
-    transform: "translate(-50%, -30%)", zIndex: 1, opacity: 5,
-    width: "300px", height: "299px",
-    backgroundImage: `url(${coin})`, backgroundSize: "contain",
-    backgroundRepeat: "no-repeat", backgroundPosition: "center", pointerEvents: "none"
-  }}></div>
+  
 
   {/* Conteúdo da seção 1 */}
   <h1 className="title">CRYPTOSTARS THE FUTURE</h1>
@@ -169,6 +159,17 @@ function App() {
       onLoginSuccess={handleLoginSuccess}
     />
   )}
+
+{isAndroid && (
+  <a
+    href="/cryptostars.apk"
+    download
+    className="btn"
+    style={{ marginTop: "20px", backgroundColor: "#00ffff", color: "#000", fontWeight: "bold" }}
+  >
+    Download 
+  </a>
+)}
 </section>
 
           {/* Seção 2 */}
