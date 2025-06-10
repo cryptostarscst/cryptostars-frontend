@@ -56,16 +56,23 @@ function App() {
   useEffect(() => {
     const fetchVisitCount = async () => {
       try {
-        const snapshot = await getDocs(collection(db, "visits"));
-        setVisitCount(snapshot.size);
+        const docRef = doc(db, "visits_summary", "total");
+        const docSnap = await getDoc(docRef);
+  
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setVisitCount(data.totalVisits || 0);
+        } else {
+          console.warn("Documento de resumo de visitas não encontrado.");
+          setVisitCount(0);
+        }
       } catch (error) {
-        console.error("Erro ao buscar contador de visitas:", error);
+        console.error("Erro ao buscar totalVisits em visits_summary:", error);
       }
     };
   
     fetchVisitCount();
   }, []);
-
 
   useEffect(() => {
     const registerVisit = async () => {
