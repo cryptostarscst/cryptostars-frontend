@@ -27,7 +27,7 @@ import { Routes, Route } from "react-router-dom";
 import TournamentTypes from "./TournamentTypes";
 import { useEffect } from "react";
 import { db } from "./firebaseConfig";
-import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, getDocs, serverTimestamp, doc, getDoc } from "firebase/firestore";
 
 
 function App() {
