@@ -160,14 +160,16 @@ function App() {
     />
   )}
 
-<a
-  href="https://crypto-stars-2c126.web.app/cryptostars.apk"
-  download
-  className="btn"
-  style={{ marginTop: "20px", backgroundColor: "#00ffff", color: "#000", fontWeight: "bold" }}
->
-  Download
-</a>
+{isAndroid && (
+  <a
+    href="https://crypto-stars-2c126.web.app/cryptostars.apk"
+    download
+    className="btn"
+    style={{ marginTop: "20px", backgroundColor: "#00ffff", color: "#000", fontWeight: "bold" }}
+  >
+    Download
+  </a>
+)}
 </section>
 
           {/* Seção 2 */}
