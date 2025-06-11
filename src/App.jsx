@@ -169,8 +169,9 @@ function App() {
 
 {isAndroid && (
   <a
-    href="https://crypto-stars-2c126.web.app/cryptostars.apk"
-    download
+    href="https://play.google.com/store/apps/details?id=crypto.stars.btctournament"
+    target="_blank"
+    rel="noopener noreferrer"
     className="btn"
     style={{ marginTop: "20px", backgroundColor: "#00ffff", color: "#000", fontWeight: "bold" }}
   >
@@ -356,7 +357,7 @@ function App() {
   </div>
 
   <div className="app-links">
-  <a href="https://github.com/cryptostarscst/CryptoStars-tournaments/releases/tag/v1.0.0" target="_blank" rel="noopener noreferrer">
+  <a href="https://play.google.com/store/apps/details?id=crypto.stars.btctournament" target="_blank" rel="noopener noreferrer">
   <img src={androidBtn} alt="Download for Android" className="social-icon" />
 </a>
 
