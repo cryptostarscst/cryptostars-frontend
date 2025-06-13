@@ -443,3 +443,26 @@ html, body {
     font-size: 0.8rem;
   }
 }
+
+.neon-banner {
+  background: rgba(0, 0, 0, 0.4);
+  color: #00ffff;
+  text-shadow: 0 0 005px #00ffff, 0 0 008px #00ffff, 0 0 0010px #00ffff;
+  font-weight: bold;
+  font-size: 18px;
+  padding: 10px;
+  text-align: center;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 9999;
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+
+   
+    font-family: "Orbitron", sans-serif;
+    font-weight: 300; /* garanta o peso bold igual ao botão */
+    font-size: 20px; /* ajuste conforme o visual do botão */
+    letter-spacing: 1.5px; /* se o botão tiver espaçamento de letras */
+  }

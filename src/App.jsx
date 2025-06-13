@@ -105,6 +105,8 @@ function App() {
   };
 
   return (
+
+
     <div className="hero-container">
       {isAuthenticated && playerId ? (
         showTournamentTypes ? (
@@ -118,6 +120,12 @@ function App() {
         )
       ) : (
         <>
+
+<div className="neon-banner">
+  <marquee behavior="scroll" direction="left">
+  REGISTER AND RECEIVE <strong>1 USDC</strong> + <strong>10.000 CST</strong> TO PLAY AND EXPLORE THE CRYPTOSTARS COMPETITIVE WORLD!
+  </marquee>
+</div>
    
 
         
