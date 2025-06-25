@@ -28,8 +28,7 @@ import TournamentTypes from "./TournamentTypes";
 import { useEffect } from "react";
 import { db } from "./firebaseConfig";
 import { collection, addDoc, getDocs, serverTimestamp, doc, getDoc } from "firebase/firestore";
-import introVideo from "./assets/videos/intro.mp4";
-import introAudio from "./assets/audio/intro.mp3";
+
 
 
 function App() {
@@ -150,8 +149,7 @@ function App() {
   }}
 />
 <audio autoPlay loop>
-  <source src={introAudio} type="audio/mp3" />
-  Your browser does not support the audio element.
+  <source src="/audio/intro.mp3" type="audio/mpeg" />
 </audio>
 
   
