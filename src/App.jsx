@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import "./styles/custom.css";
-import background from "./assets/images/background.jpg";
+import introImage from "./assets/images/intro.jpg"; // ou .png se for esse o formato
 import stars from "./assets/images/stars-bg.jpg"; // segundo fundo
 import thirdBg from "./assets/images/your-third-bg.jpg"; // terceiro fundo
 import coin from "./assets/images/coin.png";
@@ -28,6 +28,8 @@ import TournamentTypes from "./TournamentTypes";
 import { useEffect } from "react";
 import { db } from "./firebaseConfig";
 import { collection, addDoc, getDocs, serverTimestamp, doc, getDoc } from "firebase/firestore";
+import introVideo from "./assets/videos/intro.mp4";
+import introAudio from "./assets/audio/intro.mp3";
 
 
 function App() {
@@ -134,23 +136,23 @@ function App() {
         
         {/* Seção 1 */}
         <section className="page-section" style={{ position: "relative", overflow: "hidden" }}>
-  <video
-    autoPlay
-    loop
-    muted
-    playsInline
-    src={require("./assets/videos/intro.mp4")}
-    style={{
-      position: "absolute",
-      top: 0,
-      left: 0,
-      width: "100%",
-      height: "100%",
-      objectFit: "cover",
-      zIndex: -1,
-    }}
-  />
-
+        <img
+  src={introImage}
+  alt="Fundo"
+  style={{
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    zIndex: -1,
+  }}
+/>
+<audio autoPlay loop>
+  <source src={introAudio} type="audio/mp3" />
+  Your browser does not support the audio element.
+</audio>
 
   
 
