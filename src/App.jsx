@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import "./styles/custom.css";
-import introImage from "./assets/images/intro.jpg"; // ou .png se for esse o formato
+import introVideo from "./assets/videos/intro.mp4";
 import stars from "./assets/images/stars-bg.jpg"; // segundo fundo
 import thirdBg from "./assets/images/your-third-bg.jpg"; // terceiro fundo
 import coin from "./assets/images/coin.png";
@@ -29,6 +29,7 @@ import { useEffect } from "react";
 import { db } from "./firebaseConfig";
 import { collection, addDoc, getDocs, serverTimestamp, doc, getDoc } from "firebase/firestore";
 
+import introAudio from "./assets/audio/intro.mp3";
 
 
 function App() {
@@ -125,6 +126,12 @@ function App() {
       ) : (
         <>
 
+<audio autoPlay loop>
+  <source src="/audio/intro.mp3" type="audio/mp3" />
+  Seu navegador não suporta o elemento de áudio.
+</audio>
+
+
 <div className="neon-banner">
   <marquee behavior="scroll" direction="left">
   REGISTER AND RECEIVE <strong>1 USDC</strong> + <strong>10.000 CST</strong> TO PLAY AND EXPLORE THE CRYPTOSTARS COMPETITIVE WORLD!
@@ -133,25 +140,30 @@ function App() {
    
 
         
-        {/* Seção 1 */}
-        <section className="page-section" style={{ position: "relative", overflow: "hidden" }}>
-        <img
-  src={introImage}
-  alt="Fundo"
-  style={{
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    zIndex: -1,
-  }}
-/>
-<audio autoPlay loop>
-  <source src="/audio/intro.mp3" type="audio/mpeg" />
-</audio>
+{/* Seção 1 */}
+<section className="page-section" style={{ position: "relative", overflow: "hidden" }}>
+  
+  {/* Vídeo de fundo */}
+  <video
+    autoPlay
+    loop
+    muted
+    playsInline
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+      zIndex: -1,
+    }}
+  >
+    <source src={introVideo} type="video/mp4" />
+    Seu navegador não suporta vídeo HTML5.
+  </video>
 
+ 
   
 
   {/* Conteúdo da seção 1 */}
