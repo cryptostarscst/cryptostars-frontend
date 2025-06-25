@@ -1011,7 +1011,7 @@ style={{ backgroundImage:` url(${bg1})` }}> <div className="dashboard-box">
 
 <div className="dashboard-grid">
       <div className="dashboard-item">
-        <h2>DOWNLOADS</h2>
+        <h2>USERS</h2>
         <p>{downloads}</p>
       </div>
       <div

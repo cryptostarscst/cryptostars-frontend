@@ -42,6 +42,9 @@ function App() {
   const [showTournamentTypes, setShowTournamentTypes] = useState(false);
   const [visitCount, setVisitCount] = useState(0);
   const [isAndroid, setIsAndroid] = useState(false);
+  
+
+
 
 
 
@@ -130,13 +133,23 @@ function App() {
 
         
         {/* Seção 1 */}
-<section
-  className="page-section"
-  style={{
-    backgroundImage: `url(${background})`,
-    position: "relative", // necessário para os coins serem posicionados corretamente
-  }}
->
+        <section className="page-section" style={{ position: "relative", overflow: "hidden" }}>
+  <video
+    autoPlay
+    loop
+    muted
+    playsInline
+    src={require("./assets/videos/intro.mp4")}
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+      zIndex: -1,
+    }}
+  />
 
 
   

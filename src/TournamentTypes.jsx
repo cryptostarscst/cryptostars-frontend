@@ -144,7 +144,7 @@ export default function TournamentTypes({ onClose }) {
       style={{ backgroundImage: `url(${bgImage})` }}
     >
       <h2 className="tournament-title emissive-lupin-text">
-        Escolha seu tipo de Torneio
+      Tournament types
       </h2>
 
       <div className="tournament-grid">
@@ -161,7 +161,7 @@ export default function TournamentTypes({ onClose }) {
       </div>
 
       <button className="close-tournament-button" onClick={onClose}>
-        Voltar
+      back
       </button>
 
       {modalOpen && (
