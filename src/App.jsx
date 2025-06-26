@@ -112,7 +112,29 @@ function App() {
   return (
 
 
+    
+
     <div className="hero-container">
+
+<video
+  autoPlay
+  loop
+  muted
+  playsInline
+  style={{
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    zIndex: -1
+  }}
+>
+  <source src={introVideo} type="video/mp4" />
+</video>
+
+      
       {isAuthenticated && playerId ? (
         showTournamentTypes ? (
           <TournamentTypes onClose={() => setShowTournamentTypes(false)} />
@@ -125,6 +147,8 @@ function App() {
         )
       ) : (
         <>
+
+        
 
 <audio autoPlay loop>
   <source src="/audio/intro.mp3" type="audio/mp3" />
@@ -142,26 +166,7 @@ function App() {
         
 {/* Seção 1 */}
 <section className="page-section" style={{ position: "relative", overflow: "hidden" }}>
-  
-  {/* Vídeo de fundo */}
-  <video
-    autoPlay
-    loop
-    muted
-    playsInline
-    style={{
-      position: "absolute",
-      top: 0,
-      left: 0,
-      width: "100%",
-      height: "100%",
-      objectFit: "cover",
-      zIndex: -1,
-    }}
-  >
-    <source src={introVideo} type="video/mp4" />
-    Seu navegador não suporta vídeo HTML5.
-  </video>
+ 
 
  
   
@@ -214,7 +219,30 @@ function App() {
 </section>
 
           {/* Seção 2 */}
-          <section className="page-section" style={{ backgroundImage: `url(${stars}) `}}>
+      <section
+  className="page-section"
+  style={{ position: "relative", overflow: "hidden" }}
+>
+  {/* Vídeo de fundo da Seção 2 */}
+  <video
+    autoPlay
+    loop
+    muted
+    playsInline
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+      zIndex: -1,
+    }}
+  >
+    <source src="/video/section2.mp4" type="video/mp4" />
+    Seu navegador não suporta vídeo HTML5.
+  </video>
+
           
   <div
     className="roadmap-container"
@@ -380,7 +408,30 @@ function App() {
 
 
           {/* Seção 3 */}
-          <section className="page-section" style={{ backgroundImage: `url(${thirdBg})` }}>
+          <section
+  className="page-section"
+  style={{ position: "relative", overflow: "hidden" }}
+>
+  {/* Vídeo de fundo da Seção 3 */}
+  <video
+    autoPlay
+    loop
+    muted
+    playsInline
+    style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+      zIndex: -1,
+    }}
+  >
+    <source src="/video/section3.mp4" type="video/mp4" />
+    Seu navegador não suporta vídeo HTML5.
+  </video>
+
   <h2 className="section-title">Get a head start: 1 USDC + 10,000 CST free on registration!</h2>
 
   <div className="app-gallery">
