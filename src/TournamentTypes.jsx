@@ -155,13 +155,13 @@ export default function TournamentTypes({ onClose }) {
             onClick={() => openModal(type.type)}
           >
             <img src={type.image} alt={type.name} />
-            <p>{type.name}</p>
+            
           </div>
         ))}
       </div>
 
       <button className="close-tournament-button" onClick={onClose}>
-        Voltar
+        close
       </button>
 
       {modalOpen && (
