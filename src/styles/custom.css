@@ -73,7 +73,7 @@ body {
   transform: translate(-50%, 0);
   background: #000;
   border: 2px solid #00ffff;
-  padding: 30px;
+  padding: 60px;
   z-index: 9999;
   border-radius: 12px;
   box-shadow: 0 0 20px #00ffff;
