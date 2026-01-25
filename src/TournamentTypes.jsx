@@ -95,8 +95,8 @@ export default function TournamentTypes({ onClose }) {
 
   /**
    * ✅ JOIN SEGURO (Transaction)
-   * - usa seus campos: usdcbalance / cstbalance
-   * - não sobrescreve players inteiro, escreve só players.uid
+   * - usa campos reais do seu Firestore: balanceUSDT / balanceCST
+   * - não sobrescreve players inteiro, escreve só players.{uid}
    * - se completar maxPlayers, seta start/end e status open
    * - depois navega pra sala do torneio
    */
@@ -136,30 +136,40 @@ export default function TournamentTypes({ onClose }) {
       }
 
       const entryFee = Number(t.entryFee || 0);
-      const requiredCST = String(t.type || "").toLowerCase() === "freeroll" ? 0 : 1000;
 
-      // ✅ seus campos reais
-      const usdc = Number(u.usdcbalance ?? 0);
-      const cst = Number(u.cstbalance ?? 0);
+      // ✅ regra CST: só não pede CST se for freeroll
+      const requiredCST =
+        String(t.type || "").toLowerCase() === "freeroll" ? 0 : 1000;
 
-      if (usdc < entryFee) throw new Error("Saldo USDC insuficiente.");
-      if (requiredCST > 0 && cst < requiredCST) throw new Error("Você precisa de 1000 CST.");
+      // ✅ campos reais do usuário (print mostrou balanceUSDT / balanceCST)
+      const usdt = Number(u.balanceUSDT ?? 0);
+      const cst = Number(u.balanceCST ?? 0);
 
-      // 1) debita
+      if (usdt < entryFee) throw new Error("Saldo USDC insuficiente.");
+      if (requiredCST > 0 && cst < requiredCST) {
+        throw new Error("Você precisa de 1000 CST.");
+      }
+
+      // 1) debita usuário
       tx.update(userRef, {
-        usdcbalance: usdc - entryFee,
-        ...(requiredCST > 0 ? { cstbalance: cst - requiredCST } : {}),
+        balanceUSDT: usdt - entryFee,
+        ...(requiredCST > 0 ? { balanceCST: cst - requiredCST } : {}),
       });
 
-      // 2) adiciona player sem sobrescrever tudo
+      // 2) adiciona player (com username pra leaderboard)
+      const username =
+        u.username || `Player_${String(userId).substring(0, 5)}`;
+
       tx.update(tournamentRef, {
         [`players.${userId}`]: {
+          userId,
+          username,
           registeredAt: Timestamp.now(),
           score: 0,
           result: null,
         },
-        // opcional: aumenta prizePool aqui se você quiser:
-        // prizePool: Number(t.prizePool || 0) + entryFee * 0.9
+        // opcional (se você quiser somar prêmio automaticamente):
+        // prizePool: Number(t.prizePool || 0) + entryFee * 0.9,
       });
 
       // 3) se completou, inicia
@@ -199,7 +209,9 @@ export default function TournamentTypes({ onClose }) {
       className="tournament-screen"
       style={{ backgroundImage: `url(${bgImage})` }}
     >
-      <h2 className="tournament-title emissive-lupin-text">type of tournament</h2>
+      <h2 className="tournament-title emissive-lupin-text">
+        type of tournament
+      </h2>
 
       <div className="tournament-grid">
         {types.map((type, index) => (
@@ -238,7 +250,11 @@ export default function TournamentTypes({ onClose }) {
                   className={`store-item ${(t.status || "").toLowerCase()} ${
                     joined ? "joined" : ""
                   }`}
-                  style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    cursor: "pointer",
+                  }}
                   onClick={() => handleTournamentClick(t)}
                 >
                   <img
@@ -248,17 +264,30 @@ export default function TournamentTypes({ onClose }) {
                   />
 
                   <div style={{ textAlign: "left" }}>
-                    <p><strong>NAME:</strong> {t.name}</p>
-                    <p><strong>STATUS:</strong> {t.status}</p>
-                    <p><strong>PRIZE:</strong> {t.entryFee} USDC</p>
-                    <p><strong>PLAYERS:</strong> {currentCount} / {t.maxPlayers}</p>
-                    <p><strong>GAIN:</strong> {t.prizePool || 0} USDC</p>
+                    <p>
+                      <strong>NAME:</strong> {t.name}
+                    </p>
+                    <p>
+                      <strong>STATUS:</strong> {t.status}
+                    </p>
+                    <p>
+                      <strong>PRIZE:</strong> {t.entryFee} USDC
+                    </p>
+                    <p>
+                      <strong>PLAYERS:</strong> {currentCount} / {t.maxPlayers}
+                    </p>
+                    <p>
+                      <strong>GAIN:</strong> {t.prizePool || 0} USDC
+                    </p>
                   </div>
                 </div>
               );
             })}
 
-            <button className="close-chart-button" onClick={() => setModalOpen(false)}>
+            <button
+              className="close-chart-button"
+              onClick={() => setModalOpen(false)}
+            >
               Fechar
             </button>
           </div>
