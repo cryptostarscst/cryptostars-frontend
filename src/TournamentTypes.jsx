@@ -2,14 +2,14 @@ import React, { useState, useEffect } from "react";
 import {
   collection,
   getDocs,
-  getDoc,
   doc,
-  updateDoc,
+  runTransaction,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import "./styles/tournamentTypes.css";
 import bgImage from "./assets/images/bg-tournaments.jpg";
+import { useNavigate } from "react-router-dom";
 
 // Imagens dos tipos
 import icon3p from "./assets/images/3p.png";
@@ -33,6 +33,8 @@ const typeIcons = {
 };
 
 export default function TournamentTypes({ onClose }) {
+  const navigate = useNavigate();
+
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedType, setSelectedType] = useState("");
   const [filteredTournaments, setFilteredTournaments] = useState([]);
@@ -65,7 +67,7 @@ export default function TournamentTypes({ onClose }) {
       "bigtrader": 120 * 60 * 1000,
       "freeroll": 20 * 60 * 1000,
     };
-    return durations[type.toLowerCase()] || 30 * 60 * 1000;
+    return durations[String(type || "").toLowerCase()] || 30 * 60 * 1000;
   };
 
   const openModal = async (type) => {
@@ -74,68 +76,122 @@ export default function TournamentTypes({ onClose }) {
 
     const snapshot = await getDocs(collection(db, "tournaments"));
     const tournaments = snapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .filter((t) => t.type?.toLowerCase() === type.toLowerCase());
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((t) => (t.type || "").toLowerCase() === type.toLowerCase());
 
     const sorted = [...tournaments].sort((a, b) => {
-      const order = { waiting: 0, open: 1, closed: 2 };
-      if (order[a.status] !== order[b.status]) {
-        return order[a.status] - order[b.status];
+      const order = { waiting: 0, open: 1, closed: 2, finished: 3 };
+      const sa = (a.status || "waiting").toLowerCase();
+      const sb = (b.status || "waiting").toLowerCase();
+
+      if ((order[sa] ?? 99) !== (order[sb] ?? 99)) {
+        return (order[sa] ?? 99) - (order[sb] ?? 99);
       }
-      return (a.entryFee || 0) - (b.entryFee || 0);
+      return Number(a.entryFee || 0) - Number(b.entryFee || 0);
     });
 
     setFilteredTournaments(sorted);
   };
 
-  const handleTournamentClick = async (t) => {
-    if (!userId) return alert("Usuário não identificado.");
+  /**
+   * ✅ JOIN SEGURO (Transaction)
+   * - usa seus campos: usdcbalance / cstbalance
+   * - não sobrescreve players inteiro, escreve só players.uid
+   * - se completar maxPlayers, seta start/end e status open
+   * - depois navega pra sala do torneio
+   */
+  const joinTournamentSafe = async (tournamentId) => {
+    if (!userId) throw new Error("Usuário não identificado.");
 
+    const tournamentRef = doc(db, "tournaments", tournamentId);
     const userRef = doc(db, "users", userId);
-    const userSnap = await getDoc(userRef);
-    const userData = userSnap.data();
 
-    if (!userData) return alert("Usuário não encontrado.");
+    await runTransaction(db, async (tx) => {
+      const [tSnap, uSnap] = await Promise.all([
+        tx.get(tournamentRef),
+        tx.get(userRef),
+      ]);
 
-    const joined = t.players && t.players[userId];
-    if (joined) return alert("Você já está nesse torneio.");
+      if (!tSnap.exists()) throw new Error("Torneio não existe.");
+      if (!uSnap.exists()) throw new Error("Usuário não existe.");
 
-    const usdcbalance = userData.usdcbalance || 0;
-    const cstbalance = userData.cstbalance || 0;
+      const t = tSnap.data();
+      const u = uSnap.data();
 
-    if (usdcbalance < t.entryFee || cstbalance < 1000) {
-      return alert("Saldo insuficiente para entrar no torneio.");
-    }
+      const status = String(t.status || "waiting").toLowerCase();
+      if (status !== "waiting" && status !== "open") {
+        throw new Error("Torneio não está disponível.");
+      }
 
-    // Atualizar saldos
-    await updateDoc(userRef, {
-      usdcbalance: usdcbalance - t.entryFee,
-      cstbalance: cstbalance - 1000,
+      const players = t.players || {};
+      if (players[userId]) {
+        // já entrou
+        return;
+      }
+
+      const maxPlayers = Number(t.maxPlayers || 0);
+      const count = Object.keys(players).length;
+      if (maxPlayers > 0 && count >= maxPlayers) {
+        throw new Error("Torneio lotado.");
+      }
+
+      const entryFee = Number(t.entryFee || 0);
+      const requiredCST = String(t.type || "").toLowerCase() === "freeroll" ? 0 : 1000;
+
+      // ✅ seus campos reais
+      const usdc = Number(u.usdcbalance ?? 0);
+      const cst = Number(u.cstbalance ?? 0);
+
+      if (usdc < entryFee) throw new Error("Saldo USDC insuficiente.");
+      if (requiredCST > 0 && cst < requiredCST) throw new Error("Você precisa de 1000 CST.");
+
+      // 1) debita
+      tx.update(userRef, {
+        usdcbalance: usdc - entryFee,
+        ...(requiredCST > 0 ? { cstbalance: cst - requiredCST } : {}),
+      });
+
+      // 2) adiciona player sem sobrescrever tudo
+      tx.update(tournamentRef, {
+        [`players.${userId}`]: {
+          registeredAt: Timestamp.now(),
+          score: 0,
+          result: null,
+        },
+        // opcional: aumenta prizePool aqui se você quiser:
+        // prizePool: Number(t.prizePool || 0) + entryFee * 0.9
+      });
+
+      // 3) se completou, inicia
+      const newCount = count + 1;
+      if (maxPlayers > 0 && newCount === maxPlayers) {
+        const now = Timestamp.now();
+        const end = Timestamp.fromDate(
+          new Date(Date.now() + getEndTimeMillis(t.type))
+        );
+
+        tx.update(tournamentRef, {
+          status: "open",
+          startTime: now,
+          endTime: end,
+        });
+      }
     });
 
-    // Atualizar jogadores
-    const players = { ...(t.players || {}) };
-    players[userId] = {
-      registeredAt: Timestamp.now(),
-      score: 0,
-      result: null,
-    };
+    // depois da transaction, abre a sala
+    navigate(`/tournament/${tournamentId}`);
+  };
 
-    const isLast = Object.keys(players).length === t.maxPlayers;
-    const updateData = { players };
-
-    if (isLast) {
-      updateData.startTime = Timestamp.now();
-      updateData.endTime = Timestamp.fromDate(
-        new Date(Date.now() + getEndTimeMillis(t.type))
-      );
+  const handleTournamentClick = async (t) => {
+    try {
+      await joinTournamentSafe(t.id);
+    } catch (e) {
+      console.error("Erro ao entrar:", e);
+      alert(e?.message || "Erro ao entrar no torneio.");
+    } finally {
+      // recarrega lista
+      if (selectedType) openModal(selectedType);
     }
-
-    const tournamentRef = doc(db, "tournaments", t.id);
-    await updateDoc(tournamentRef, updateData);
-
-    alert("Registro confirmado!");
-    openModal(selectedType); // Recarrega lista atualizada
   };
 
   return (
@@ -143,9 +199,7 @@ export default function TournamentTypes({ onClose }) {
       className="tournament-screen"
       style={{ backgroundImage: `url(${bgImage})` }}
     >
-      <h2 className="tournament-title emissive-lupin-text">
-      type of tournament
-      </h2>
+      <h2 className="tournament-title emissive-lupin-text">type of tournament</h2>
 
       <div className="tournament-grid">
         {types.map((type, index) => (
@@ -155,7 +209,6 @@ export default function TournamentTypes({ onClose }) {
             onClick={() => openModal(type.type)}
           >
             <img src={type.image} alt={type.name} />
-            
           </div>
         ))}
       </div>
@@ -171,126 +224,41 @@ export default function TournamentTypes({ onClose }) {
               Torneios - {selectedType.toUpperCase()}
             </h2>
 
-            {filteredTournaments.map((t, i) => {
+            {filteredTournaments.map((t) => {
               const joined =
                 userId &&
                 t.players &&
                 Object.prototype.hasOwnProperty.call(t.players, userId);
-              const currentCount = t.players
-                ? Object.keys(t.players).length
-                : 0;
 
-                return (
-                  <div
-                    key={i}
-                    className={`store-item ${t.status} ${joined ? "joined" : ""}`}
-                    style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
-                    onClick={async () => {
-                      try {
-                        const tournamentRef = doc(db, "tournaments", t.id);
-                        const userRef = doc(db, "users", userId);
-                        const userSnap = await getDoc(userRef);
-                        const tournamentSnap = await getDoc(tournamentRef);
-                
-                        if (!userSnap.exists() || !tournamentSnap.exists()) {
-                          alert("Erro ao carregar dados.");
-                          return;
-                        }
-                
-                        const userData = userSnap.data();
-                        const tournamentData = tournamentSnap.data();
-                
-                        const entryFee = Number(tournamentData.entryFee || 0);
-                        const requiredCST = tournamentData.type === "freeroll" ? 0 : 1000;
-                        const userUSDC = Number(userData.balanceUSDT || 0);
-                        const userCST = Number(userData.balanceCST || 0);
-                
-                        if (userUSDC < entryFee) {
-                          alert("Saldo USDC insuficiente para entrar no torneio.");
-                          return;
-                        }
-                
-                        if (tournamentData.type !== "freeroll" && userCST < requiredCST) {
-                          alert("Você precisa de pelo menos 1000 CST para entrar neste torneio.");
-                          return;
-                        }
-                
-                        const players = tournamentData.players || {};
-                        const updatedPlayers = {
-                          ...players,
-                          [userId]: {
-                            userId,
-                            username: userData.username || `Player_${userId.substring(0, 5)}`,
-                            score: 0,
-                            rank: 0,
-                            chips: 1000,
-                            entryFeeUSDT: entryFee,
-                            entryFeeCST: requiredCST,
-                            registeredAt: Timestamp.now(),
-                            ...(userData.skin && { skinEquipada: userData.skin }),
-                          },
-                        };
-                
-                        const playerCount = Object.keys(updatedPlayers).length;
-                        const prizePoolIncrement = entryFee * 0.9;
-                
-                        const durations = {
-                          "3p": 10,
-                          "9p": 20,
-                          "27p": 30,
-                          "81p": 60,
-                          "scheduled": 120,
-                          "fifty": 15,
-                        };
-                
-                        const updateData = {
-                          players: updatedPlayers,
-                          prizePool: increment(prizePoolIncrement),
-                        };
-                
-                        if (playerCount === tournamentData.maxPlayers) {
-                          const now = new Date();
-                          const duration = durations[tournamentData.type] || 10;
-                          const endTime = new Date(now.getTime() + duration * 60000);
-                
-                          updateData.status = "open";
-                          updateData.startTime = Timestamp.fromDate(now);
-                          updateData.endTime = Timestamp.fromDate(endTime);
-                        }
-                
-                        await updateDoc(userRef, {
-                          balanceUSDT: userUSDC - entryFee,
-                          ...(tournamentData.type !== "freeroll" && {
-                            balanceCST: userCST - requiredCST,
-                          }),
-                        });
-                
-                        await updateDoc(tournamentRef, updateData);
-                       
-                        openModal(selectedType); // recarrega a lista atualizada
-                
-                      } catch (error) {
-                        console.error("Erro ao registrar:", error);
-                        
-                      }
-                    }}
-                  >
-                    <img src={typeIcons[selectedType]} alt="" style={{ width: 64, height: 64, marginRight: 12 }} />
-                    <div style={{ textAlign: "left" }}>
-                      <p><strong>NAME:</strong> {t.name}</p>
-                      <p><strong>STATUS:</strong> {t.status}</p>
-                      <p><strong>PRIZE:</strong> {t.entryFee} USDC</p>
-                      <p><strong>PLAYERS:</strong> {currentCount} / {t.maxPlayers}</p>
-                      <p><strong>GAIN:</strong> {t.prizePool} USDC</p>
-                    </div>
+              const currentCount = t.players ? Object.keys(t.players).length : 0;
+
+              return (
+                <div
+                  key={t.id}
+                  className={`store-item ${(t.status || "").toLowerCase()} ${
+                    joined ? "joined" : ""
+                  }`}
+                  style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
+                  onClick={() => handleTournamentClick(t)}
+                >
+                  <img
+                    src={typeIcons[selectedType]}
+                    alt=""
+                    style={{ width: 64, height: 64, marginRight: 12 }}
+                  />
+
+                  <div style={{ textAlign: "left" }}>
+                    <p><strong>NAME:</strong> {t.name}</p>
+                    <p><strong>STATUS:</strong> {t.status}</p>
+                    <p><strong>PRIZE:</strong> {t.entryFee} USDC</p>
+                    <p><strong>PLAYERS:</strong> {currentCount} / {t.maxPlayers}</p>
+                    <p><strong>GAIN:</strong> {t.prizePool || 0} USDC</p>
                   </div>
-                );
+                </div>
+              );
             })}
 
-            <button
-              className="close-chart-button"
-              onClick={() => setModalOpen(false)}
-            >
+            <button className="close-chart-button" onClick={() => setModalOpen(false)}>
               Fechar
             </button>
           </div>
