@@ -1,0 +1,64 @@
+.tournament-room {
+    min-height: 100vh;
+    background-size: cover;
+    background-position: center;
+    padding: 40px;
+    color: white;
+  }
+  
+  .tournament-panel,
+  .player-box {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .leaderboard-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid #222;
+  }
+  
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+  }
+  
+  .modal-card {
+    background: #0b0b0b;
+    border-radius: 16px;
+    padding: 24px;
+    width: 360px;
+    text-align: center;
+  }
+  
+  .modal-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+  }
+  
+  .btn-confirm {
+    background: #00ffc3;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  
+  .btn-cancel {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  
