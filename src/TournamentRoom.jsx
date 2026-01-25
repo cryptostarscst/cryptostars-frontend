@@ -1,4 +1,3 @@
-// src/TournamentRoom.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -7,6 +6,7 @@ import {
   updateDoc,
   Timestamp,
   runTransaction,
+  deleteField,
 } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import "./styles/tournamentRoom.css";
@@ -19,6 +19,10 @@ function msToClock(ms) {
   return `${mm}:${ss}`;
 }
 
+function round2(n) {
+  return Math.round(Number(n || 0) * 100) / 100;
+}
+
 export default function TournamentRoom() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -27,12 +31,11 @@ export default function TournamentRoom() {
   const [players, setPlayers] = useState([]);
   const [now, setNow] = useState(Date.now());
 
-  // ✅ saldo do usuário ao vivo
+  // saldo do usuário ao vivo
   const [userDoc, setUserDoc] = useState(null);
-
   const [busy, setBusy] = useState(false);
 
-  // 🔹 ouve torneio
+  // ouve torneio
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "tournaments", id), (snap) => {
       if (!snap.exists()) return;
@@ -58,7 +61,7 @@ export default function TournamentRoom() {
     };
   }, [id]);
 
-  // 🔹 ouve usuário (saldo em tempo real)
+  // ouve usuário (saldo em tempo real)
   useEffect(() => {
     if (!userId) return;
 
@@ -74,38 +77,30 @@ export default function TournamentRoom() {
   }, [userId]);
 
   if (!tournament) {
-    return (
-      <div style={{ padding: 16, color: "white" }}>
-        Carregando torneio...
-      </div>
-    );
+    return <div style={{ padding: 16, color: "white" }}>Carregando torneio...</div>;
   }
 
   const status = String(tournament.status || "waiting").toLowerCase();
   const endMs = tournament.endTime?.toMillis?.() ?? null;
   const timeLeft = endMs ? endMs - now : null;
 
-  const entryFee = Number(tournament.entryFee || 0);
+  const entryFee = round2(tournament.entryFee || 0);
   const requiredCST =
-    String(tournament.type || "").toLowerCase() === "freeroll" || entryFee === 0
-      ? 0
-      : 1000;
+    String(tournament.type || "").toLowerCase() === "freeroll" || entryFee === 0 ? 0 : 1000;
 
   const me = userId && tournament.players ? tournament.players[userId] : null;
   const myName =
-    me?.username ||
-    (userId ? `Player_${String(userId).substring(0, 5)}` : "Player");
+    me?.username || (userId ? `Player_${String(userId).substring(0, 5)}` : "Player");
 
-  // ✅ valores do saldo (ao vivo)
+  // saldo ao vivo
   const balanceUSDT = Number(userDoc?.balanceUSDT ?? 0);
   const balanceCST = Number(userDoc?.balanceCST ?? 0);
 
-  // ✅ cancelar registro (refund + rollback prizePool)
+  // cancelar registro (refund + rollback prizePool)
   const cancelRegistration = async () => {
     if (!userId) return alert("Usuário não identificado.");
     if (!me) return alert("Você não está registrado nesse torneio.");
 
-    // seguro: só cancela enquanto waiting
     if (status !== "waiting") {
       return alert("Você só pode cancelar enquanto o torneio estiver em WAITING.");
     }
@@ -118,10 +113,7 @@ export default function TournamentRoom() {
       const userRef = doc(db, "users", userId);
 
       await runTransaction(db, async (tx) => {
-        const [tSnap, uSnap] = await Promise.all([
-          tx.get(tournamentRef),
-          tx.get(userRef),
-        ]);
+        const [tSnap, uSnap] = await Promise.all([tx.get(tournamentRef), tx.get(userRef)]);
 
         if (!tSnap.exists()) throw new Error("Torneio não existe.");
         if (!uSnap.exists()) throw new Error("Usuário não existe.");
@@ -139,9 +131,8 @@ export default function TournamentRoom() {
 
         const playerData = curPlayers[userId];
 
-        // ✅ quanto devolver
-        const refundUSDT = Number(playerData.entryFeeUSDT ?? t.entryFee ?? 0);
-
+        // quanto devolver (100%)
+        const refundUSDT = round2(playerData.entryFeeUSDT ?? t.entryFee ?? 0);
         const refundCST = Number(
           playerData.entryFeeCST ??
             (String(t.type || "").toLowerCase() === "freeroll" || Number(t.entryFee || 0) === 0
@@ -149,31 +140,25 @@ export default function TournamentRoom() {
               : 1000)
         );
 
-        // ✅ quanto remover do prizePool (90% do entryFee)
-        // preferimos usar o valor salvo no join (pra ficar 100% exato)
-        const contribution = Number(
-          playerData.prizeContribution ?? refundUSDT * 0.9
-        );
+        // quanto remover do prizePool (90%)
+        const contribution = round2(playerData.prizeContribution ?? refundUSDT * 0.9);
 
         const curUSDT = Number(u.balanceUSDT ?? 0);
         const curCST = Number(u.balanceCST ?? 0);
 
-        // 1) reembolsa usuário (100%)
+        // 1) reembolsa usuário
         tx.update(userRef, {
-          balanceUSDT: curUSDT + refundUSDT,
+          balanceUSDT: round2(curUSDT + refundUSDT),
           ...(refundCST > 0 ? { balanceCST: curCST + refundCST } : {}),
         });
 
-        // 2) remove jogador
-        const updatedPlayers = { ...curPlayers };
-        delete updatedPlayers[userId];
+        // 2) rollback prizePool
+        const currentPrizePool = round2(t.prizePool || 0);
+        const newPrizePool = Math.max(0, round2(currentPrizePool - contribution));
 
-        // 3) rollback do prizePool (remove só 90%)
-        const currentPrizePool = Number(t.prizePool || 0);
-        const newPrizePool = Math.max(0, currentPrizePool - contribution);
-
+        // 3) remove APENAS o campo players.uid (mais seguro que sobrescrever players inteiro)
         tx.update(tournamentRef, {
-          players: updatedPlayers,
+          [`players.${userId}`]: deleteField(),
           prizePool: newPrizePool,
         });
       });
@@ -188,7 +173,7 @@ export default function TournamentRoom() {
     }
   };
 
-  // ⚠️ teste
+  // teste (somar score)
   async function addTestScore() {
     if (!userId) return;
     if (!me) return alert("Você não está registrado.");
@@ -202,10 +187,7 @@ export default function TournamentRoom() {
   }
 
   return (
-    <div
-      className="tournament-room"
-      style={{ backgroundImage: `url(${bgArena})` }}
-    >
+    <div className="tournament-room" style={{ backgroundImage: `url(${bgArena})` }}>
       <div className="tournament-panel">
         <h2>{tournament.name || "Tournament"}</h2>
 
@@ -218,7 +200,6 @@ export default function TournamentRoom() {
           {endMs && <div><b>Tempo restante:</b> {msToClock(timeLeft)}</div>}
         </div>
 
-        {/* ✅ SALDO DO USUÁRIO */}
         <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid #222" }}>
           <div><b>Seu saldo:</b></div>
           <div>USDT: {balanceUSDT.toFixed(2)}</div>
@@ -232,13 +213,8 @@ export default function TournamentRoom() {
           <p><b>Seu score:</b> {me.score || 0}</p>
 
           <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-            <button onClick={addTestScore} disabled={busy}>
-              +10 score (teste)
-            </button>
-
-            <button onClick={cancelRegistration} disabled={busy}>
-              Cancelar registro
-            </button>
+            <button onClick={addTestScore} disabled={busy}>+10 score (teste)</button>
+            <button onClick={cancelRegistration} disabled={busy}>Cancelar registro</button>
           </div>
         </div>
       )}

@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  collection,
-  getDocs,
-  doc,
-  runTransaction,
-  Timestamp,
-} from "firebase/firestore";
+import { collection, getDocs, doc, runTransaction, Timestamp } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import "./styles/tournamentTypes.css";
 import bgImage from "./assets/images/bg-tournaments.jpg";
@@ -31,6 +25,10 @@ const typeIcons = {
   "bigtrader": iconBigTrader,
   "freeroll": iconFreeroll,
 };
+
+function round2(n) {
+  return Math.round(Number(n || 0) * 100) / 100;
+}
 
 export default function TournamentTypes({ onClose }) {
   const navigate = useNavigate();
@@ -95,10 +93,11 @@ export default function TournamentTypes({ onClose }) {
 
   /**
    * ✅ JOIN SEGURO (Transaction)
-   * - usa campos reais do seu Firestore: balanceUSDT / balanceCST
-   * - não sobrescreve players inteiro, escreve só players.{uid}
-   * - se completar maxPlayers, seta start/end e status open
-   * - depois navega pra sala do torneio
+   * - permite entrar APENAS se status=waiting
+   * - debita balanceUSDT / balanceCST
+   * - soma 90% do entryFee no prizePool
+   * - salva entryFeeUSDT/entryFeeCST/prizeContribution no player (pra cancelar certinho)
+   * - inicia torneio se completar maxPlayers
    */
   const joinTournamentSafe = async (tournamentId) => {
     if (!userId) throw new Error("Usuário não identificado.");
@@ -107,10 +106,7 @@ export default function TournamentTypes({ onClose }) {
     const userRef = doc(db, "users", userId);
 
     await runTransaction(db, async (tx) => {
-      const [tSnap, uSnap] = await Promise.all([
-        tx.get(tournamentRef),
-        tx.get(userRef),
-      ]);
+      const [tSnap, uSnap] = await Promise.all([tx.get(tournamentRef), tx.get(userRef)]);
 
       if (!tSnap.exists()) throw new Error("Torneio não existe.");
       if (!uSnap.exists()) throw new Error("Usuário não existe.");
@@ -119,8 +115,8 @@ export default function TournamentTypes({ onClose }) {
       const u = uSnap.data();
 
       const status = String(t.status || "waiting").toLowerCase();
-      if (status !== "waiting" && status !== "open") {
-        throw new Error("Torneio não está disponível.");
+      if (status !== "waiting") {
+        throw new Error("Esse torneio não está aceitando registro agora.");
       }
 
       const players = t.players || {};
@@ -135,30 +131,30 @@ export default function TournamentTypes({ onClose }) {
         throw new Error("Torneio lotado.");
       }
 
-      const entryFee = Number(t.entryFee || 0);
+      const entryFee = round2(t.entryFee || 0);
 
-      // ✅ regra CST: só não pede CST se for freeroll
-      const requiredCST =
-        String(t.type || "").toLowerCase() === "freeroll" ? 0 : 1000;
+      // ✅ Free: se freeroll OU entryFee == 0, não cobra CST
+      const isFree = String(t.type || "").toLowerCase() === "freeroll" || entryFee === 0;
+      const requiredCST = isFree ? 0 : 1000;
 
-      // ✅ campos reais do usuário (print mostrou balanceUSDT / balanceCST)
       const usdt = Number(u.balanceUSDT ?? 0);
       const cst = Number(u.balanceCST ?? 0);
 
       if (usdt < entryFee) throw new Error("Saldo USDC insuficiente.");
-      if (requiredCST > 0 && cst < requiredCST) {
-        throw new Error("Você precisa de 1000 CST.");
-      }
+      if (requiredCST > 0 && cst < requiredCST) throw new Error("Você precisa de 1000 CST.");
 
-      // 1) debita usuário
+      // ✅ 90% vai para prizePool
+      const prizeContribution = round2(entryFee * 0.9);
+      const currentPrizePool = round2(t.prizePool || 0);
+
+      // 1) debita usuário (cancel devolve 100%)
       tx.update(userRef, {
-        balanceUSDT: usdt - entryFee,
+        balanceUSDT: round2(usdt - entryFee),
         ...(requiredCST > 0 ? { balanceCST: cst - requiredCST } : {}),
       });
 
-      // 2) adiciona player (com username pra leaderboard)
-      const username =
-        u.username || `Player_${String(userId).substring(0, 5)}`;
+      // 2) adiciona player + soma prizePool
+      const username = u.username || `Player_${String(userId).substring(0, 5)}`;
 
       tx.update(tournamentRef, {
         [`players.${userId}`]: {
@@ -167,18 +163,20 @@ export default function TournamentTypes({ onClose }) {
           registeredAt: Timestamp.now(),
           score: 0,
           result: null,
+          entryFeeUSDT: entryFee,
+          entryFeeCST: requiredCST,
+          prizeContribution,
         },
-        // opcional (se você quiser somar prêmio automaticamente):
-        // prizePool: Number(t.prizePool || 0) + entryFee * 0.9,
+
+        // ✅ campo correto do Firestore
+        prizePool: round2(currentPrizePool + prizeContribution),
       });
 
       // 3) se completou, inicia
       const newCount = count + 1;
       if (maxPlayers > 0 && newCount === maxPlayers) {
         const now = Timestamp.now();
-        const end = Timestamp.fromDate(
-          new Date(Date.now() + getEndTimeMillis(t.type))
-        );
+        const end = Timestamp.fromDate(new Date(Date.now() + getEndTimeMillis(t.type)));
 
         tx.update(tournamentRef, {
           status: "open",
@@ -188,7 +186,6 @@ export default function TournamentTypes({ onClose }) {
       }
     });
 
-    // depois da transaction, abre a sala
     navigate(`/tournament/${tournamentId}`);
   };
 
@@ -199,97 +196,54 @@ export default function TournamentTypes({ onClose }) {
       console.error("Erro ao entrar:", e);
       alert(e?.message || "Erro ao entrar no torneio.");
     } finally {
-      // recarrega lista
       if (selectedType) openModal(selectedType);
     }
   };
 
   return (
-    <div
-      className="tournament-screen"
-      style={{ backgroundImage: `url(${bgImage})` }}
-    >
-      <h2 className="tournament-title emissive-lupin-text">
-        type of tournament
-      </h2>
+    <div className="tournament-screen" style={{ backgroundImage: `url(${bgImage})` }}>
+      <h2 className="tournament-title emissive-lupin-text">type of tournament</h2>
 
       <div className="tournament-grid">
         {types.map((type, index) => (
-          <div
-            key={index}
-            className="tournament-card"
-            onClick={() => openModal(type.type)}
-          >
+          <div key={index} className="tournament-card" onClick={() => openModal(type.type)}>
             <img src={type.image} alt={type.name} />
           </div>
         ))}
       </div>
 
-      <button className="close-tournament-button" onClick={onClose}>
-        close
-      </button>
+      <button className="close-tournament-button" onClick={onClose}>close</button>
 
       {modalOpen && (
         <div className="chart-overlay">
           <div className="chart-card">
-            <h2 className="emissive-lupin-text">
-              Torneios - {selectedType.toUpperCase()}
-            </h2>
+            <h2 className="emissive-lupin-text">Torneios - {selectedType.toUpperCase()}</h2>
 
             {filteredTournaments.map((t) => {
-              const joined =
-                userId &&
-                t.players &&
-                Object.prototype.hasOwnProperty.call(t.players, userId);
-
+              const joined = userId && t.players && Object.prototype.hasOwnProperty.call(t.players, userId);
               const currentCount = t.players ? Object.keys(t.players).length : 0;
 
               return (
                 <div
                   key={t.id}
-                  className={`store-item ${(t.status || "").toLowerCase()} ${
-                    joined ? "joined" : ""
-                  }`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    cursor: "pointer",
-                  }}
+                  className={`store-item ${(t.status || "").toLowerCase()} ${joined ? "joined" : ""}`}
+                  style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
                   onClick={() => handleTournamentClick(t)}
                 >
-                  <img
-                    src={typeIcons[selectedType]}
-                    alt=""
-                    style={{ width: 64, height: 64, marginRight: 12 }}
-                  />
+                  <img src={typeIcons[selectedType]} alt="" style={{ width: 64, height: 64, marginRight: 12 }} />
 
                   <div style={{ textAlign: "left" }}>
-                    <p>
-                      <strong>NAME:</strong> {t.name}
-                    </p>
-                    <p>
-                      <strong>STATUS:</strong> {t.status}
-                    </p>
-                    <p>
-                      <strong>PRIZE:</strong> {t.entryFee} USDC
-                    </p>
-                    <p>
-                      <strong>PLAYERS:</strong> {currentCount} / {t.maxPlayers}
-                    </p>
-                    <p>
-                      <strong>GAIN:</strong> {t.prizePool || 0} USDC
-                    </p>
+                    <p><strong>NAME:</strong> {t.name}</p>
+                    <p><strong>STATUS:</strong> {t.status}</p>
+                    <p><strong>ENTRY:</strong> {t.entryFee} USDC</p>
+                    <p><strong>PLAYERS:</strong> {currentCount} / {t.maxPlayers}</p>
+                    <p><strong>PRIZE POOL:</strong> {t.prizePool || 0} USDC</p>
                   </div>
                 </div>
               );
             })}
 
-            <button
-              className="close-chart-button"
-              onClick={() => setModalOpen(false)}
-            >
-              Fechar
-            </button>
+            <button className="close-chart-button" onClick={() => setModalOpen(false)}>Fechar</button>
           </div>
         </div>
       )}
