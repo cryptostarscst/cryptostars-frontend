@@ -74,7 +74,11 @@ export default function TournamentRoom() {
   }, [userId]);
 
   if (!tournament) {
-    return <div style={{ padding: 16, color: "white" }}>Carregando torneio...</div>;
+    return (
+      <div style={{ padding: 16, color: "white" }}>
+        Carregando torneio...
+      </div>
+    );
   }
 
   const status = String(tournament.status || "waiting").toLowerCase();
@@ -89,13 +93,14 @@ export default function TournamentRoom() {
 
   const me = userId && tournament.players ? tournament.players[userId] : null;
   const myName =
-    me?.username || (userId ? `Player_${String(userId).substring(0, 5)}` : "Player");
+    me?.username ||
+    (userId ? `Player_${String(userId).substring(0, 5)}` : "Player");
 
   // ✅ valores do saldo (ao vivo)
   const balanceUSDT = Number(userDoc?.balanceUSDT ?? 0);
   const balanceCST = Number(userDoc?.balanceCST ?? 0);
 
-  // ✅ cancelar registro (refund)
+  // ✅ cancelar registro (refund + rollback prizePool)
   const cancelRegistration = async () => {
     if (!userId) return alert("Usuário não identificado.");
     if (!me) return alert("Você não está registrado nesse torneio.");
@@ -134,8 +139,9 @@ export default function TournamentRoom() {
 
         const playerData = curPlayers[userId];
 
-        // quanto devolver (usa o que foi salvo no player, ou fallback)
+        // ✅ quanto devolver
         const refundUSDT = Number(playerData.entryFeeUSDT ?? t.entryFee ?? 0);
+
         const refundCST = Number(
           playerData.entryFeeCST ??
             (String(t.type || "").toLowerCase() === "freeroll" || Number(t.entryFee || 0) === 0
@@ -143,25 +149,36 @@ export default function TournamentRoom() {
               : 1000)
         );
 
+        // ✅ quanto remover do prizePool (90% do entryFee)
+        // preferimos usar o valor salvo no join (pra ficar 100% exato)
+        const contribution = Number(
+          playerData.prizeContribution ?? refundUSDT * 0.9
+        );
+
         const curUSDT = Number(u.balanceUSDT ?? 0);
         const curCST = Number(u.balanceCST ?? 0);
 
-        // reembolsa
+        // 1) reembolsa usuário (100%)
         tx.update(userRef, {
           balanceUSDT: curUSDT + refundUSDT,
           ...(refundCST > 0 ? { balanceCST: curCST + refundCST } : {}),
         });
 
-        // remove jogador
+        // 2) remove jogador
         const updatedPlayers = { ...curPlayers };
         delete updatedPlayers[userId];
 
+        // 3) rollback do prizePool (remove só 90%)
+        const currentPrizePool = Number(t.prizePool || 0);
+        const newPrizePool = Math.max(0, currentPrizePool - contribution);
+
         tx.update(tournamentRef, {
           players: updatedPlayers,
+          prizePool: newPrizePool,
         });
       });
 
-      alert("Registro cancelado e saldo reembolsado!");
+      alert("Registro cancelado, prizePool ajustado e saldo reembolsado!");
       navigate(-1);
     } catch (e) {
       console.error(e);
@@ -185,7 +202,10 @@ export default function TournamentRoom() {
   }
 
   return (
-    <div className="tournament-room" style={{ backgroundImage: `url(${bgArena})` }}>
+    <div
+      className="tournament-room"
+      style={{ backgroundImage: `url(${bgArena})` }}
+    >
       <div className="tournament-panel">
         <h2>{tournament.name || "Tournament"}</h2>
 
