@@ -1,7 +1,13 @@
 // src/TournamentRoom.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, onSnapshot, updateDoc, Timestamp, runTransaction } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  updateDoc,
+  Timestamp,
+  runTransaction,
+} from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import "./styles/tournamentRoom.css";
 import bgArena from "./assets/images/bg-tournaments.jpg";
@@ -17,14 +23,12 @@ export default function TournamentRoom() {
   const { id } = useParams();
   const navigate = useNavigate();
   const userId = useMemo(() => localStorage.getItem("userId"), []);
-
   const [tournament, setTournament] = useState(null);
   const [players, setPlayers] = useState([]);
   const [now, setNow] = useState(Date.now());
   const [userDoc, setUserDoc] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  // ✅ Ouvindo torneio
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "tournaments", id), (snap) => {
       if (!snap.exists()) return;
@@ -48,7 +52,6 @@ export default function TournamentRoom() {
     };
   }, [id]);
 
-  // ✅ Ouvindo usuário (saldo)
   useEffect(() => {
     if (!userId) return;
     const unsubUser = onSnapshot(doc(db, "users", userId), (snap) => {
@@ -61,19 +64,12 @@ export default function TournamentRoom() {
     return () => unsubUser();
   }, [userId]);
 
-  // ✅ Fundo SEMPRE aparece, mesmo carregando
   if (!tournament) {
     return (
-      <div
-        className="tournament-room"
-        style={{ backgroundImage: `url(${bgArena})` }}
-      >
+      <div className="tournament-room" style={{ backgroundImage: `url(${bgArena})` }}>
         <div className="tournament-panel">
           <h2>Carregando torneio...</h2>
-          <p>Buscando dados no servidor...</p>
-          <button className="btn-cancel" onClick={() => navigate(-1)}>
-            Voltar
-          </button>
+          <button className="btn-cancel" onClick={() => navigate(-1)}>Voltar</button>
         </div>
       </div>
     );
@@ -81,26 +77,90 @@ export default function TournamentRoom() {
 
   const status = String(tournament.status || "waiting").toLowerCase();
   const endMs = tournament.endTime?.toMillis?.() ?? null;
-  const timeLeft = endMs ? endMs - now : null;
+  const timeLeft = endMs ? Math.max(0, endMs - now) : null;
 
   const entryFee = Number(tournament.entryFee || 0);
+  const prizePool = Number(tournament.prizePool || 0);
 
   const me = userId && tournament.players ? tournament.players[userId] : null;
-
-  const myName =
-    me?.username || (userId ? `Player_${String(userId).substring(0, 5)}` : "Player");
+  const myName = me?.username || (userId ? `Player_${String(userId).substring(0, 5)}` : "Player");
 
   const balanceUSDT = Number(userDoc?.balanceUSDT ?? 0);
   const balanceCST = Number(userDoc?.balanceCST ?? 0);
 
-  // ✅ Cancelar registro (só WAITING) com reembolso + rollback prizePool
+  // Registrar (mesma lógica: transaction + soma prizePool 90%)
+  const register = async () => {
+    if (!userId) return alert("Usuário não identificado.");
+    setBusy(true);
+    try {
+      const tournamentRef = doc(db, "tournaments", id);
+      const userRef = doc(db, "users", userId);
+
+      await runTransaction(db, async (tx) => {
+        const [tSnap, uSnap] = await Promise.all([tx.get(tournamentRef), tx.get(userRef)]);
+        if (!tSnap.exists()) throw new Error("Torneio não existe.");
+        if (!uSnap.exists()) throw new Error("Usuário não existe.");
+
+        const t = tSnap.data();
+        const u = uSnap.data();
+
+        const players = t.players || {};
+        if (players[userId]) throw new Error("Você já está registrado.");
+
+        const maxPlayers = Number(t.maxPlayers || 0);
+        const count = Object.keys(players).length;
+        if (maxPlayers > 0 && count >= maxPlayers) throw new Error("Torneio lotado.");
+
+        const entryFee = Number(t.entryFee || 0);
+        const isFree = String(t.type || "").toLowerCase() === "freeroll" || entryFee === 0;
+        const requiredCST = isFree ? 0 : 1000;
+
+        const usdt = Number(u.balanceUSDT ?? 0);
+        const cst = Number(u.balanceCST ?? 0);
+        if (usdt < entryFee) throw new Error("Saldo USDT insuficiente.");
+        if (requiredCST > 0 && cst < requiredCST) throw new Error("Você precisa de 1000 CST.");
+
+        const prizeContribution = entryFee * 0.9;
+        const currentPrizePool = Number(t.prizePool || 0);
+
+        // debita usuário
+        tx.update(userRef, {
+          balanceUSDT: usdt - entryFee,
+          ...(requiredCST > 0 ? { balanceCST: cst - requiredCST } : {}),
+        });
+
+        const username = u.username || `Player_${String(userId).substring(0, 5)}`;
+
+        tx.update(tournamentRef, {
+          [`players.${userId}`]: {
+            userId,
+            username,
+            registeredAt: Timestamp.now(),
+            score: 0,
+            result: null,
+            entryFeeUSDT: entryFee,
+            entryFeeCST: requiredCST,
+            prizeContribution,
+            chips: 1000,
+          },
+          prizePool: currentPrizePool + prizeContribution,
+        });
+      });
+
+      // stay on room (onSnapshot irá atualizar)
+    } catch (e) {
+      console.error("Erro registrar:", e);
+      alert(e?.message || "Erro ao registrar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Cancelar (rollback prizePool e reembolso)
   const cancelRegistration = async () => {
     if (!userId) return alert("Usuário não identificado.");
-    if (!me) return alert("Você não está registrado nesse torneio.");
-
-    if (status !== "waiting") {
-      return alert("Você só pode cancelar enquanto o torneio estiver em WAITING.");
-    }
+    if (!me) return alert("Você não está registrado.");
+    if (status !== "waiting") return alert("Só pode cancelar enquanto WAITING.");
 
     if (!confirm("Cancelar registro e receber reembolso?")) return;
 
@@ -110,21 +170,12 @@ export default function TournamentRoom() {
       const userRef = doc(db, "users", userId);
 
       await runTransaction(db, async (tx) => {
-        const [tSnap, uSnap] = await Promise.all([
-          tx.get(tournamentRef),
-          tx.get(userRef),
-        ]);
-
+        const [tSnap, uSnap] = await Promise.all([tx.get(tournamentRef), tx.get(userRef)]);
         if (!tSnap.exists()) throw new Error("Torneio não existe.");
         if (!uSnap.exists()) throw new Error("Usuário não existe.");
 
         const t = tSnap.data();
         const u = uSnap.data();
-
-        const curStatus = String(t.status || "waiting").toLowerCase();
-        if (curStatus !== "waiting") {
-          throw new Error("Só é possível cancelar enquanto o torneio estiver WAITING.");
-        }
 
         const curPlayers = t.players || {};
         if (!curPlayers[userId]) return;
@@ -155,84 +206,88 @@ export default function TournamentRoom() {
         });
       });
 
-      alert("Registro cancelado e saldo reembolsado!");
+      // navega para trás (opcional)
       navigate(-1);
     } catch (e) {
-      console.error(e);
+      console.error("Erro cancelar:", e);
       alert(e?.message || "Erro ao cancelar registro.");
     } finally {
       setBusy(false);
     }
   };
 
-  // ⚠️ teste de score
-  async function addTestScore() {
-    if (!userId) return;
-    if (!me) return alert("Você não está registrado.");
-    if (status !== "open") return alert("Torneio não está em andamento.");
-
-    await updateDoc(doc(db, "tournaments", id), {
-      [`players.${userId}.score`]: Number(me.score || 0) + 10,
-      [`players.${userId}.lastActionAt`]: Timestamp.now(),
-      [`players.${userId}.username`]: myName,
-    });
-  }
-
   return (
-    <div className="tournament-room" style={{ backgroundImage: `url(${bgArena})` }}>
-      <div className="tournament-panel">
-        <h2>{tournament.name || "Tournament"}</h2>
+    <div className="tournament-room full-screen" style={{ backgroundImage: `url(${bgArena})` }}>
+      {/* área principal com gráfico + painel à esquerda */}
+      <div className="room-grid">
+        <div className="chart-area">
+          {/* Placeholder do gráfico — aqui vamos integrar a API da Binance depois */}
+          <div className="chart-placeholder">
+            <div className="chart-header">
+              <div className="pair-label">{tournament.instrument || "BTC/USDT"}</div>
+              <div className="timer">{timeLeft ? msToClock(timeLeft) : "--:--"}</div>
+            </div>
 
-        <div className="info-grid">
-          <div><b>Status:</b> {status}</div>
-          <div><b>EntryFee:</b> {entryFee} USDC</div>
-          <div><b>PrizePool:</b> {Number(tournament.prizePool || 0).toFixed(2)} USDC</div>
-          <div><b>Players:</b> {players.length}/{tournament.maxPlayers ?? "-"}</div>
-          {endMs && <div><b>Tempo restante:</b> {msToClock(timeLeft)}</div>}
-        </div>
+            <div className="chart-canvas">
+              {/* Aqui entraremos com o gráfico real (ex: TradingView, lightweight chart, etc.) */}
+              <div className="chart-fake">GRÁFICO AQUI (POC)</div>
+            </div>
 
-        <div className="balance-box">
-          <div className="balance-title">Seu saldo</div>
-          <div className="balance-row"><span>USDT</span><span>{balanceUSDT.toFixed(2)}</span></div>
-          <div className="balance-row"><span>CST</span><span>{balanceCST.toLocaleString()}</span></div>
-        </div>
-
-        {/* ✅ LOBBY DE ESPERA (não fica preto) */}
-        {status === "waiting" && (
-          <div className="waiting-box">
-            <h3>Aguardando iniciar...</h3>
-            <p>O servidor ainda não colocou o torneio como <b>open</b>.</p>
-            <p>Quando mudar para <b>open</b>, essa tela já vira a sala automaticamente.</p>
-            <button className="btn-cancel" onClick={() => navigate(-1)}>Voltar</button>
+            <div className="chart-controls">
+              <div className="side-odds">
+                <div className="up-btn">ACIMA</div>
+                <div className="down-btn">ABAIXO</div>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
+
+        <aside className="side-panel">
+          <div className="panel-card">
+            <h3>{tournament.name}</h3>
+            <p>Status: <strong>{status}</strong></p>
+            <p>Entry Fee: <strong>{entryFee} USDT</strong></p>
+            <p>Prize Pool: <strong>{prizePool.toFixed(2)} USDT</strong></p>
+            <p>Players: <strong>{players.length}/{tournament.maxPlayers}</strong></p>
+
+            <div className="balance-block">
+              <div>Seu saldo</div>
+              <div>USDT: {balanceUSDT.toFixed(2)}</div>
+              <div>CST: {balanceCST.toLocaleString()}</div>
+            </div>
+
+            <div className="action-buttons">
+              {!me ? (
+                <button className="btn-confirm" disabled={busy || status === "open" /* allow join in waiting/open as you prefer */} onClick={register}>
+                  {busy ? "Processando..." : "Registrar"}
+                </button>
+              ) : (
+                <div>
+                  <div>Você está registrado</div>
+                  <div>chips: {me.chips ?? 1000}</div>
+                  <button className="btn-cancel" disabled={busy || status !== "waiting"} onClick={cancelRegistration}>
+                    Cancelar registro
+                  </button>
+                </div>
+              )}
+
+              <button className="btn-secondary" onClick={() => navigate(-1)}>Voltar</button>
+            </div>
+          </div>
+        </aside>
       </div>
 
-      {me && (
-        <div className="player-box">
-          <p><b>Você:</b> {myName}</p>
-          <p><b>Seu score:</b> {me.score || 0}</p>
-
-          <div className="actions-row">
-            <button onClick={addTestScore} disabled={busy || status !== "open"}>
-              +10 score (teste)
-            </button>
-
-            <button onClick={cancelRegistration} disabled={busy || status !== "waiting"}>
-              Cancelar registro
-            </button>
-          </div>
+      {/* leaderboard embaixo (mobile-first) */}
+      <div className="leaderboard-bottom">
+        <h4>Leaderboard</h4>
+        <div className="leaderboard-list">
+          {players.map((p, idx) => (
+            <div key={p.uid || idx} className="leaderboard-row">
+              <div>#{idx + 1} {p.username}</div>
+              <div>{p.score || 0}</div>
+            </div>
+          ))}
         </div>
-      )}
-
-      <h3 className="leaderboard-title">Leaderboard</h3>
-      <div className="leaderboard">
-        {players.map((p, idx) => (
-          <div key={p.uid || `${idx}`} className="leaderboard-row">
-            <span>#{idx + 1} {p.username}</span>
-            <span>{p.score || 0}</span>
-          </div>
-        ))}
       </div>
     </div>
   );

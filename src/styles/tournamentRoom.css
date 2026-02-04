@@ -1,177 +1,141 @@
-/* src/styles/tournamentRoom.css */
-
+/* src/styles/tournamentRoom.css - estilização POC */
 .tournament-room {
   min-height: 100vh;
-  width: 100%;
   background-size: cover;
   background-position: center;
-  background-repeat: no-repeat;
-
-  padding: 22px 16px;
   color: white;
+  padding: 12px;
+  box-sizing: border-box;
+  font-family: "Orbitron", system-ui, sans-serif;
 }
 
-/* ✅ Centraliza e limita largura (bom no desktop e no mobile) */
-.tournament-panel,
-.player-box {
-  max-width: 920px;
-  margin: 0 auto 14px auto;
-
-  background: rgba(0, 0, 0, 0.62);
-  border: 1px solid rgba(0, 255, 195, 0.18);
-  box-shadow: 0 0 18px rgba(0, 255, 195, 0.07);
-
-  padding: 16px;
-  border-radius: 14px;
-  backdrop-filter: blur(6px);
+/* grid principal */
+.room-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 16px;
+  align-items: start;
 }
 
-/* Títulos */
-.tournament-panel h2,
-.tournament-panel h3 {
-  margin: 0 0 10px 0;
-  letter-spacing: 0.5px;
+/* chart area */
+.chart-area {
+  background: rgba(0,0,0,0.45);
+  border-radius: 10px;
+  padding: 12px;
+  min-height: 560px;
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
 }
 
-/* ✅ Espaçamento melhor pros dados */
-.tournament-panel > div {
-  font-size: 14px;
+/* fake chart placeholder */
+.chart-placeholder {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
-/* Leaderboard */
-.leaderboard-row {
+.chart-header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-
-  font-size: 14px;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
-.leaderboard-row span:last-child {
+.pair-label {
   font-weight: 700;
-  color: #00ffc3;
+  font-size: 18px;
 }
 
-/* ✅ Botões base (usa suas classes do JSX) */
-.btn-confirm,
-.btn-cancel {
-  border: none;
-  padding: 10px 14px;
-  border-radius: 10px;
-  cursor: pointer;
+.timer {
+  background: rgba(0,0,0,0.5);
+  padding: 6px 10px;
+  border-radius: 8px;
   font-weight: 700;
-  letter-spacing: 0.3px;
-  transition: transform 0.05s ease, opacity 0.15s ease, filter 0.15s ease;
 }
 
-.btn-confirm:active,
-.btn-cancel:active {
-  transform: scale(0.98);
-}
-
-.btn-confirm {
-  background: #00ffc3;
-  color: #000;
-}
-
-.btn-confirm:hover {
-  filter: brightness(1.05);
-}
-
-.btn-cancel {
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-.btn-cancel:hover {
-  background: rgba(255, 255, 255, 0.16);
-}
-
-/* Disabled */
-.btn-confirm:disabled,
-.btn-cancel:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* ✅ Player box (destaque sutil) */
-.player-box {
-  border-color: rgba(0, 255, 195, 0.25);
-}
-
-/* ✅ Modal Overlay */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.82);
+.chart-canvas {
+  flex: 1;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(10,10,10,0.6), rgba(0,0,0,0.8));
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
-
-  padding: 16px;
+  margin-bottom: 8px;
 }
 
-/* ✅ Modal Card */
-.modal-card {
-  width: 100%;
-  max-width: 420px;
-
-  background: rgba(10, 10, 10, 0.96);
-  border: 1px solid rgba(0, 255, 195, 0.22);
-  border-radius: 18px;
-  padding: 18px 18px 16px 18px;
-
-  box-shadow: 0 0 25px rgba(0, 255, 195, 0.12);
+/* Platzhalter text */
+.chart-fake {
+  color: #9aa6b2;
+  font-size: 20px;
+  opacity: 0.85;
 }
 
-.modal-card h3 {
-  margin: 0 0 10px 0;
-  color: #00ffc3;
-}
-
-.modal-card hr {
-  border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.10);
-  margin: 12px 0;
-}
-
-.modal-actions {
+/* side odds (placeholder) */
+.chart-controls {
   display: flex;
-  gap: 10px;
+  justify-content: flex-end;
+}
+
+.side-odds { display:flex; gap:8px; }
+.up-btn, .down-btn {
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.up-btn { background: rgba(0,200,120,0.12); border: 1px solid rgba(0,200,120,0.2); color: #bffcd9; }
+.down-btn { background: rgba(200,0,60,0.08); border: 1px solid rgba(200,0,60,0.12); color: #ffb6c1; }
+
+/* side panel */
+.side-panel { position: relative; }
+.panel-card {
+  background: rgba(0,0,0,0.6);
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+}
+
+.balance-block {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.03);
+  font-size: 14px;
+}
+
+.action-buttons { margin-top: 14px; display:flex; flex-direction: column; gap: 10px; }
+
+.btn-confirm, .btn-cancel, .btn-secondary {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+}
+.btn-confirm { background: #00ffc3; color: #000; }
+.btn-cancel { background: #333; color: #fff; }
+.btn-secondary { background: rgba(255,255,255,0.06); color: #fff; }
+
+/* leaderboard bottom */
+.leaderboard-bottom {
+  margin-top: 18px;
+}
+.leaderboard-list {
+  background: rgba(0,0,0,0.5);
+  border-radius: 8px;
+  padding: 8px;
+}
+.leaderboard-row {
+  display:flex;
   justify-content: space-between;
-  margin-top: 14px;
+  padding: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
 }
 
-.modal-actions .btn-confirm,
-.modal-actions .btn-cancel {
-  width: 100%;
-}
-
-/* ✅ Mobile refinements */
-@media (max-width: 520px) {
-  .tournament-room {
-    padding: 14px 10px;
-  }
-
-  .tournament-panel,
-  .player-box {
-    padding: 14px;
-    border-radius: 12px;
-  }
-
-  .leaderboard-row {
-    padding: 10px 10px;
-    font-size: 13px;
-  }
-
-  .modal-card {
-    border-radius: 16px;
-    padding: 16px;
-  }
+/* responsive */
+@media (max-width: 900px) {
+  .room-grid { grid-template-columns: 1fr; }
+  .side-panel { order: 2; }
+  .chart-area { order: 1; min-height: 420px; }
+  .panel-card { margin-top: 12px; }
 }

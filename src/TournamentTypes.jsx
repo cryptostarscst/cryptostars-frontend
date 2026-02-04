@@ -1,5 +1,12 @@
+// src/TournamentTypes.jsx
 import React, { useState, useEffect } from "react";
-import { collection, getDocs, doc, runTransaction, Timestamp } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  doc,
+  runTransaction,
+  Timestamp,
+} from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import "./styles/tournamentTypes.css";
 import bgImage from "./assets/images/bg-tournaments.jpg";
@@ -26,17 +33,13 @@ const typeIcons = {
   "freeroll": iconFreeroll,
 };
 
-function round2(n) {
-  return Math.round(Number(n || 0) * 100) / 100;
-}
-
 export default function TournamentTypes({ onClose }) {
   const navigate = useNavigate();
-
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedType, setSelectedType] = useState("");
   const [filteredTournaments, setFilteredTournaments] = useState([]);
   const [userId, setUserId] = useState("");
+  const [loadingJoin, setLoadingJoin] = useState(false);
 
   useEffect(() => {
     const uid = localStorage.getItem("userId");
@@ -92,110 +95,89 @@ export default function TournamentTypes({ onClose }) {
   };
 
   /**
-   * ✅ JOIN SEGURO (Transaction)
-   * - permite entrar APENAS se status=waiting
+   * Join seguro via transaction.
    * - debita balanceUSDT / balanceCST
    * - soma 90% do entryFee no prizePool
-   * - salva entryFeeUSDT/entryFeeCST/prizeContribution no player (pra cancelar certinho)
-   * - inicia torneio se completar maxPlayers
+   * - salva no player entryFeeUSDT/entryFeeCST/prizeContribution
    */
   const joinTournamentSafe = async (tournamentId) => {
-    if (!userId) throw new Error("Usuário não identificado.");
-
+    if (!userId) return alert("Usuário não identificado.");
+    setLoadingJoin(true);
     const tournamentRef = doc(db, "tournaments", tournamentId);
     const userRef = doc(db, "users", userId);
 
-    await runTransaction(db, async (tx) => {
-      const [tSnap, uSnap] = await Promise.all([tx.get(tournamentRef), tx.get(userRef)]);
-
-      if (!tSnap.exists()) throw new Error("Torneio não existe.");
-      if (!uSnap.exists()) throw new Error("Usuário não existe.");
-
-      const t = tSnap.data();
-      const u = uSnap.data();
-
-      const status = String(t.status || "waiting").toLowerCase();
-      if (status !== "waiting") {
-        throw new Error("Esse torneio não está aceitando registro agora.");
-      }
-
-      const players = t.players || {};
-      if (players[userId]) {
-        // já entrou
-        return;
-      }
-
-      const maxPlayers = Number(t.maxPlayers || 0);
-      const count = Object.keys(players).length;
-      if (maxPlayers > 0 && count >= maxPlayers) {
-        throw new Error("Torneio lotado.");
-      }
-
-      const entryFee = round2(t.entryFee || 0);
-
-      // ✅ Free: se freeroll OU entryFee == 0, não cobra CST
-      const isFree = String(t.type || "").toLowerCase() === "freeroll" || entryFee === 0;
-      const requiredCST = isFree ? 0 : 1000;
-
-      const usdt = Number(u.balanceUSDT ?? 0);
-      const cst = Number(u.balanceCST ?? 0);
-
-      if (usdt < entryFee) throw new Error("Saldo USDC insuficiente.");
-      if (requiredCST > 0 && cst < requiredCST) throw new Error("Você precisa de 1000 CST.");
-
-      // ✅ 90% vai para prizePool
-      const prizeContribution = round2(entryFee * 0.9);
-      const currentPrizePool = round2(t.prizePool || 0);
-
-      // 1) debita usuário (cancel devolve 100%)
-      tx.update(userRef, {
-        balanceUSDT: round2(usdt - entryFee),
-        ...(requiredCST > 0 ? { balanceCST: cst - requiredCST } : {}),
-      });
-
-      // 2) adiciona player + soma prizePool
-      const username = u.username || `Player_${String(userId).substring(0, 5)}`;
-
-      tx.update(tournamentRef, {
-        [`players.${userId}`]: {
-          userId,
-          username,
-          registeredAt: Timestamp.now(),
-          score: 0,
-          result: null,
-          entryFeeUSDT: entryFee,
-          entryFeeCST: requiredCST,
-          prizeContribution,
-        },
-
-        // ✅ campo correto do Firestore
-        prizePool: round2(currentPrizePool + prizeContribution),
-      });
-
-      // 3) se completou, inicia
-      const newCount = count + 1;
-      if (maxPlayers > 0 && newCount === maxPlayers) {
-        const now = Timestamp.now();
-        const end = Timestamp.fromDate(new Date(Date.now() + getEndTimeMillis(t.type)));
-
-        tx.update(tournamentRef, {
-          status: "open",
-          startTime: now,
-          endTime: end,
-        });
-      }
-    });
-
-    navigate(`/tournament/${tournamentId}`);
-  };
-
-  const handleTournamentClick = async (t) => {
     try {
-      await joinTournamentSafe(t.id);
+      await runTransaction(db, async (tx) => {
+        const [tSnap, uSnap] = await Promise.all([tx.get(tournamentRef), tx.get(userRef)]);
+        if (!tSnap.exists()) throw new Error("Torneio não existe.");
+        if (!uSnap.exists()) throw new Error("Usuário não existe.");
+
+        const t = tSnap.data();
+        const u = uSnap.data();
+
+        const status = String(t.status || "waiting").toLowerCase();
+        if (status !== "waiting" && status !== "open") throw new Error("Torneio não está disponível.");
+
+        const players = t.players || {};
+        if (players[userId]) return; // já entrou
+
+        const maxPlayers = Number(t.maxPlayers || 0);
+        const count = Object.keys(players).length;
+        if (maxPlayers > 0 && count >= maxPlayers) throw new Error("Torneio lotado.");
+
+        const entryFee = Number(t.entryFee || 0);
+        const isFree = String(t.type || "").toLowerCase() === "freeroll" || entryFee === 0;
+        const requiredCST = isFree ? 0 : 1000;
+
+        const usdt = Number(u.balanceUSDT ?? 0);
+        const cst = Number(u.balanceCST ?? 0);
+
+        if (usdt < entryFee) throw new Error("Saldo USDT insuficiente.");
+        if (requiredCST > 0 && cst < requiredCST) throw new Error("Você precisa de 1000 CST.");
+
+        const prizeContribution = entryFee * 0.9;
+        const currentPrizePool = Number(t.prizePool || 0);
+
+        // debita usuário
+        tx.update(userRef, {
+          balanceUSDT: usdt - entryFee,
+          ...(requiredCST > 0 ? { balanceCST: cst - requiredCST } : {}),
+        });
+
+        const username = u.username || `Player_${String(userId).substring(0, 5)}`;
+
+        // adiciona player e soma prizePool
+        tx.update(tournamentRef, {
+          [`players.${userId}`]: {
+            userId,
+            username,
+            registeredAt: Timestamp.now(),
+            score: 0,
+            result: null,
+            entryFeeUSDT: entryFee,
+            entryFeeCST: requiredCST,
+            prizeContribution,
+            chips: 1000,
+          },
+          prizePool: currentPrizePool + prizeContribution,
+        });
+
+        // se completar, inicia
+        const newCount = count + 1;
+        if (maxPlayers > 0 && newCount === maxPlayers) {
+          const now = Timestamp.now();
+          const end = Timestamp.fromDate(new Date(Date.now() + getEndTimeMillis(t.type)));
+          tx.update(tournamentRef, { status: "open", startTime: now, endTime: end });
+        }
+      });
+
+      // abre a sala depois do join
+      navigate(`/tournament/${tournamentId}`);
     } catch (e) {
-      console.error("Erro ao entrar:", e);
+      console.error("Erro join:", e);
       alert(e?.message || "Erro ao entrar no torneio.");
     } finally {
+      setLoadingJoin(false);
       if (selectedType) openModal(selectedType);
     }
   };
@@ -208,6 +190,7 @@ export default function TournamentTypes({ onClose }) {
         {types.map((type, index) => (
           <div key={index} className="tournament-card" onClick={() => openModal(type.type)}>
             <img src={type.image} alt={type.name} />
+            <div className="tournament-card-label">{type.name}</div>
           </div>
         ))}
       </div>
@@ -219,25 +202,31 @@ export default function TournamentTypes({ onClose }) {
           <div className="chart-card">
             <h2 className="emissive-lupin-text">Torneios - {selectedType.toUpperCase()}</h2>
 
+            {filteredTournaments.length === 0 && <p>Nenhum torneio disponível para esse tipo.</p>}
+
             {filteredTournaments.map((t) => {
               const joined = userId && t.players && Object.prototype.hasOwnProperty.call(t.players, userId);
               const currentCount = t.players ? Object.keys(t.players).length : 0;
 
               return (
-                <div
-                  key={t.id}
-                  className={`store-item ${(t.status || "").toLowerCase()} ${joined ? "joined" : ""}`}
-                  style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
-                  onClick={() => handleTournamentClick(t)}
-                >
-                  <img src={typeIcons[selectedType]} alt="" style={{ width: 64, height: 64, marginRight: 12 }} />
+                <div key={t.id} className={`store-item ${(t.status || "").toLowerCase()} ${joined ? "joined" : ""}`}>
+                  <img src={typeIcons[selectedType]} alt="" style={{ width: 64, height: 64 }} />
+                  <div style={{ flex: 1, marginLeft: 12 }}>
+                    <p><strong>{t.name}</strong></p>
+                    <p>Status: {t.status}</p>
+                    <p>EntryFee: {t.entryFee} USDT</p>
+                    <p>Players: {currentCount} / {t.maxPlayers}</p>
+                    <p>PrizePool: {Number(t.prizePool || 0).toFixed(2)} USDT</p>
+                  </div>
 
-                  <div style={{ textAlign: "left" }}>
-                    <p><strong>NAME:</strong> {t.name}</p>
-                    <p><strong>STATUS:</strong> {t.status}</p>
-                    <p><strong>ENTRY:</strong> {t.entryFee} USDC</p>
-                    <p><strong>PLAYERS:</strong> {currentCount} / {t.maxPlayers}</p>
-                    <p><strong>PRIZE POOL:</strong> {t.prizePool || 0} USDC</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {joined ? (
+                      <button className="btn-cancel" onClick={() => navigate(`/tournament/${t.id}`)}>Ir para sala</button>
+                    ) : (
+                      <button className="btn-confirm" disabled={loadingJoin} onClick={() => joinTournamentSafe(t.id)}>
+                        {loadingJoin ? "Entrando..." : "Registrar"}
+                      </button>
+                    )}
                   </div>
                 </div>
               );
